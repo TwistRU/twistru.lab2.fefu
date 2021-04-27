@@ -1,58 +1,140 @@
 'use strict';
 
+class Bullet {
+    constructor(ctx, objGame) {
+        this.del = false;
+        this.ctx = ctx;
+        this.objGame = objGame;
+        this.img = new Image();
+        this.img.src = 'images/laserShotRed.png';
+        this.width = canvas.height / 100 ;
+        this.height = canvas.height / 100 * this.img.naturalHeight / this.img.naturalWidth;
+        this.speed = 5;
+        this.x = canvas.width + this.width;
+        this.y = canvas.height;
+        this.damage = 1;
+        console.log('I\'m bullet', this.x, this.y, this.width, this.height);
+    }
+
+    draw() {
+        //console.log('I\'m drawing bullet');
+        if (!this.checkCrush()) {
+            this.ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
+            this.y -= this.speed;
+        } else {
+
+            //console.log('I\'m crushed bullet');
+            this.del = true;
+        }
+    }
+
+    moveTo(x, y) {
+        this.x = x - this.width / 2;
+        this.y = y - this.height / 2;
+    }
+
+    checkCrush() {
+        if (this.y+this.height < 0) {// if reach top
+            return true;
+        }
+        //console.log('I\'m not crushed bullet');
+        return false;
+    }
+}
+
+
 class Player {
-    constructor(x, y) {
+    constructor(x, y, ctx, objGame) {
+        this.del = false;
+        this.objGame = objGame;
+        this.ctx = ctx;
         this.countOfLives = 3;
+        this.damage = 0;
+        this.maxFiringFrequency = 100; // Shot every Milliseconds
+        this.timeOfLastShot = Date.now();
+        this.autoFire = false;
         this.img = new Image();
         this.img.src = 'images/playerSpaceship.png';
-        this.width = window.innerWidth/18;
+        this.width = window.innerHeight / 10;
         this.height = this.width;
-        this.speed = this.width/60;
-        this.x = x-this.width/2;
-        this.y = y-this.height/2;
+        this.speed = this.width / 60;
+        this.x = x - this.width / 2;
+        this.y = y - this.height / 2;
         console.log(`Player created at ${this.x} ${this.y}`);
-        this.movemenetInterval = setInterval(this.movement, 1, this);
+        this.movemenetInterval = setInterval(this.movementByKeyboard, 1, this);
     }
-    moveTo(dx,dy){
+
+    draw() {
+        if (this.countOfLives <= 0) {
+            this.death();
+        }
+        this.drawPlayer();
+        if (this.autoFire) {
+            this.fire();
+        }
+    }
+
+    drawPlayer() {
+        this.ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
+    }
+
+    fire() {
+        if (Date.now() - this.timeOfLastShot - this.maxFiringFrequency > 0) {
+            this.timeOfLastShot = Date.now();
+            let bull = new Bullet(ctx, this.objGame);
+            bull.moveTo(this.x + this.width / 2, this.y - bull.height / 2);
+            this.objGame.drawableObjects.push(bull);
+        }
+    }
+
+    addToCoord(dx, dy) {
         this.x += dx;
         this.y += dy;
     }
 
-    movement(self){
-        if (self.countOfLives < 1){
-            clearInterval(self.movemenetInterval);
+    moveTo(x, y) {
+        this.x = x - this.width / 2;
+        this.y = y - this.height / 2;
+    }
+
+    movementByKeyboard(self) {
+        if (keysStatus[KEY_CODES.SPACEBAR]) {
+            self.fire();
         }
-        if (keysStatus[KEY_CODES.DOWN_KEY] && self.y < window.innerHeight-self.height){
-            self.moveTo(0, self.speed);
+        if (keysStatus[KEY_CODES.DOWN_KEY] && self.y < canvas.height - self.height) {
+            self.addToCoord(0, self.speed);
         }
-        if (keysStatus[KEY_CODES.UP_KEY] && self.y > 0){
-            self.moveTo(0, -self.speed);
+        if (keysStatus[KEY_CODES.UP_KEY] && self.y > 0) {
+            self.addToCoord(0, -self.speed);
         }
-        if (keysStatus[KEY_CODES.LEFT_KEY] && self.x > 0){
-            self.moveTo(-self.speed, 0);
+        if (keysStatus[KEY_CODES.LEFT_KEY] && self.x > 0) {
+            self.addToCoord(-self.speed, 0);
         }
-        if (keysStatus[KEY_CODES.RIGHT_KEY] && self.x < window.innerWidth-self.width){
-            self.moveTo(self.speed, 0);
+        if (keysStatus[KEY_CODES.RIGHT_KEY] && self.x < canvas.width - self.width) {
+            self.addToCoord(self.speed, 0);
         }
+    }
+
+    death() {
+        console.log('PLAYER IS DEAD');
+        clearInterval(this.movemenetInterval);
+        this.del = true;
     }
 }
 
 class Obstacle {
-    constructor(x, y) {
+    constructor(x, y, ctx, objGame) {
+        this.ctx = ctx;
+        this.objGame = objGame;
         this.x = x;
         this.y = y;
     }
 }
 
 class Enemy {
-    constructor(x, y) {
-        this.x = x;
-        this.y = y;
-    }
-}
-
-class Bullet {
-    constructor(x, y) {
+    constructor(x, y, ctx, objGame) {
+        this.ctx = ctx;
+        this.objGame = objGame;
         this.x = x;
         this.y = y;
     }
@@ -61,23 +143,34 @@ class Bullet {
 class Game {
     constructor(ctx) {
         this.alive = true;
-        this.arrayOfStars = [];
-        this.arrayOfObstacles = [];
+        this.drawableObjects = [];
         this.ctx = ctx;
         this.width = window.innerWidth;
         this.height = window.innerHeight;
-        this.player = new Player(this.width/2, this.height/2);
+
+        this.prepare();
+    }
+
+    prepare() {
+        // Level 0 Background
         this.prepareInGameBackground();
+        //
+        // Level 1 Player, Enemies, Obstacles, Bullets
+        this.player = new Player(this.width / 2, (this.height / 10) * 9, this.ctx, this);
+        this.drawableObjects.push(this.player);
+        //
     }
 
     draw() {
+        // Draw level 0
         this.drawBackground();
-        this.drawPlayer();
-        return this.alive;
-    }
-
-    drawPlayer(){
-        this.ctx.drawImage(this.player.img, this.player.x, this.player.y, this.player.width, this.player.height);
+        // Draw level 1
+        console.log('DrawObjs: ',this.drawableObjects);
+        for (const obj of this.drawableObjects) {
+            obj.draw();
+        }
+        this.drawableObjects = this.drawableObjects.filter(item => !item.del);
+        return true;
     }
 
     drawBackground() {
@@ -101,6 +194,7 @@ class Game {
     }
 
     prepareInGameBackground() {
+        this.arrayOfStars = [];
         for (let i = 0; i < Math.floor(this.width * this.height / 2500); i++) {
             this.arrayOfStars.push({x: Math.random() * this.width, y: Math.random() * this.height})
         }
@@ -119,6 +213,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 const ctx = canvas.getContext('2d');
 const KEY_CODES = {
+    SPACEBAR: 32,
     LEFT_KEY: 37,
     UP_KEY: 38,
     RIGHT_KEY: 39,
@@ -147,16 +242,10 @@ function changeMousePos(e) {
 function keyPressed(e) {
     // EventListener keydown
     keysStatus[e.keyCode] = true;
+    //console.log(e.keyCode);
 }
 
 function keyReleased(e) {
     // EventListener keyup
     keysStatus[e.keyCode] = false;
 }
-
-
-
-
-
-
-
