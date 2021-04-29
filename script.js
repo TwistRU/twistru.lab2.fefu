@@ -40,8 +40,12 @@ class Bullet {
             if (Math.pow(obj.x + obj.width / 2 - this.x, 2) + Math.pow(obj.y + obj.height / 2 - this.y, 2) <= Math.pow(obj.width / 2, 2)) {
                 console.log(`Shooted a ${obj.type}`);
                 if (obj.type === 'player' && this.damageToPlayer !== 0) {
-                    console.log(`Damage to ${obj.type}`);
-                    obj.countOfLives -= this.damageToPlayer;
+                    if (!obj.immortal){
+                        console.log(`Damage to ${obj.type}`);
+                        obj.countOfLives -= this.damageToPlayer;
+                        obj.immortal = true;
+                        console.log('Player is immortal');
+                    }
                     return true;
                 }
                 if (obj.type === 'enemy' && this.damageToEnemy !== 0) {
@@ -66,6 +70,8 @@ class Player {
         this.countOfLives = 3;
         this.damage = 1;
         this.maxFiringFrequency = 300; // Shot every Milliseconds
+        this.immortal = false;
+        this.timeOfLastImmortal = Date.now();
         this.timeOfLastShot = Date.now();
         this.autoFire = false;
         this.img = new Image();
@@ -84,6 +90,14 @@ class Player {
             this.death();
         }
         this.drawPlayer();
+        if (this.immortal){
+            this.drawImmortal();
+            if (Date.now() - 3000 - this.timeOfLastImmortal >= 0){
+                this.timeOfLastImmortal = Date.now();
+                //console.log('Player is not immortal anymore');
+                this.immortal = false;
+            }
+        }
         if (this.autoFire) {
             this.fire();
         }
@@ -100,9 +114,17 @@ class Player {
         }
     }
 
-    // drawImmortal() {
-    //     this.ctx.
-    // }
+    drawImmortal() {
+        this.ctx.fillStyle = 'rgba(32,20,186,0.4)'
+        this.ctx.arc(
+            this.x+this.width/2,
+            this.y+this.height/2,
+            Math.sqrt(Math.pow(this.width/2,2) + Math.pow(this.height/2,2)),
+            0,
+            Math.PI*2
+            );
+        this.ctx.fill();
+    }
 
     addToCoord(dx, dy) {
         this.x += dx;
