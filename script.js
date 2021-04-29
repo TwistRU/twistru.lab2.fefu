@@ -1,14 +1,13 @@
 'use strict';
 
 class Bullet {
-    constructor(ctx, objGame, x, y, speed = 0, damageToPlayer = 0, damageToEnemy = 0) {
+    constructor(ctx, objGame, x, y, color, speed = 0, damageToPlayer = 0, damageToEnemy = 0) {
         this.del = false;
         this.ctx = ctx;
         this.objGame = objGame;
-        this.img = new Image();
-        this.img.src = 'images/laserShotRed.png';
+        this.color = color;
         this.width = canvas.height / 100;
-        this.height = canvas.height / 100 * this.img.naturalHeight / this.img.naturalWidth;
+        this.height = this.width * 3;
         this.speed = speed;
         this.x = x - this.width / 2;
         this.y = y - this.height / 2;
@@ -20,20 +19,39 @@ class Bullet {
     draw() {
         //console.log('I\'m drawing bullet');
         if (!this.checkCrush()) {
-            this.ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
+            this.drawBullet();
             this.y -= this.speed;
         } else {
-
             //console.log('I\'m crushed bullet');
             this.del = true;
         }
+    }
+
+    drawBullet() {
+        this.ctx.fillStyle = this.color;
+        this.ctx.fillRect(this.x, this.y, this.width, this.height);
     }
 
     checkCrush() {
         if (this.y + this.height < 0 || this.y > canvas.height) {// if reach top
             return true;
         }
-        //console.log('I\'m not crushed bullet');
+        for (const obj of this.objGame.drawableObjects[1]) {
+            if (Math.pow(obj.x + obj.width / 2 - this.x, 2) + Math.pow(obj.y + obj.height / 2 - this.y, 2) <= Math.pow(obj.width / 2, 2)) {
+                console.log(`Shooted a ${obj.type}`);
+                if (obj.type === 'player' && this.damageToPlayer !== 0) {
+                    console.log(`Damage to ${obj.type}`);
+                    obj.countOfLives -= this.damageToPlayer;
+                    return true;
+                }
+                if (obj.type === 'enemy' && this.damageToEnemy !== 0) {
+                    console.log(`Damage to ${obj.type}`);
+                    obj.countOfLives -= this.damageToEnemy;
+                    return true;
+                }
+                return false;
+            }
+        }
         return false;
     }
 }
@@ -41,12 +59,13 @@ class Bullet {
 
 class Player {
     constructor(x, y, ctx, objGame) {
+        this.type = 'player';
         this.del = false;
         this.objGame = objGame;
         this.ctx = ctx;
         this.countOfLives = 3;
-        this.damage = 0;
-        this.maxFiringFrequency = 100; // Shot every Milliseconds
+        this.damage = 1;
+        this.maxFiringFrequency = 300; // Shot every Milliseconds
         this.timeOfLastShot = Date.now();
         this.autoFire = false;
         this.img = new Image();
@@ -77,9 +96,13 @@ class Player {
     fire() {
         if (Date.now() - this.timeOfLastShot - this.maxFiringFrequency > 0) {
             this.timeOfLastShot = Date.now();
-            this.objGame.drawableObjects.push(new Bullet(ctx, this.objGame, this.x + this.width / 2, this.y, this.speed+5, 0, this.damage));
+            this.objGame.drawableObjects[0].push(new Bullet(ctx, this.objGame, this.x + this.width / 2, this.y - 10, "#a00404", this.speed + 5, 0, this.damage));
         }
     }
+
+    // drawImmortal() {
+    //     this.ctx.
+    // }
 
     addToCoord(dx, dy) {
         this.x += dx;
@@ -118,15 +141,7 @@ class Player {
 
 class Obstacle {
     constructor(x, y, ctx, objGame) {
-        this.ctx = ctx;
-        this.objGame = objGame;
-        this.x = x;
-        this.y = y;
-    }
-}
-
-class Enemy {
-    constructor(x, y, ctx, objGame) {
+        this.type = 'obstacle';
         this.ctx = ctx;
         this.objGame = objGame;
         this.x = x;
@@ -135,6 +150,52 @@ class Enemy {
 
     draw() {
 
+    }
+}
+
+class Enemy {
+    constructor(x, y, ctx, objGame) {
+        this.type = 'enemy';
+        this.ctx = ctx;
+        this.objGame = objGame;
+        this.width = window.innerHeight / 10;
+        this.height = this.width;
+        this.speed = this.width / 50;
+        this.x = x - this.width / 2;
+        this.y = y - this.height / 2;
+        this.del = false;
+        this.timeOfLastShot = Date.now();
+        this.autoFire = true;
+        this.maxFiringFrequency = 500;
+        this.damage = 1;
+        this.countOfLives = 10;
+    }
+
+    draw() {
+        if (this.countOfLives <= 0) {
+            this.death();
+        }
+        this.drawEnemy();
+        if (this.autoFire) {
+            this.fire();
+        }
+    }
+
+    drawEnemy() {
+        this.ctx.fillStyle = '#FFF';
+        this.ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+
+    fire() {
+        if (Date.now() - this.timeOfLastShot - this.maxFiringFrequency >= 0) {
+            this.timeOfLastShot = Date.now();
+            this.objGame.drawableObjects[0].push(new Bullet(ctx, this.objGame, this.x + this.width / 2, this.y + this.height + 15, '#1fd030', -this.speed - 5, this.damage, 0));
+        }
+    }
+
+    death() {
+        console.log('Enemy is DEAD');
+        this.del = true;
     }
 }
 
@@ -168,7 +229,10 @@ class Button {
 
 class Game {
     constructor(ctx) {
-        this.drawableObjects = [];
+        this.drawableObjects = {
+            0: [],
+            1: [],
+        };
         this.ctx = ctx;
         this.width = window.innerWidth;
         this.height = window.innerHeight;
@@ -180,8 +244,11 @@ class Game {
     prepare() {
         // Level 1 Player, Enemies, Obstacles, Bullets
         this.player = new Player(this.width / 2, (this.height / 10) * 9, this.ctx, this);
-        this.drawableObjects.push(this.player);
+        this.drawableObjects[1].push(this.player);
         //
+        this.drawableObjects[1].push(
+            new Enemy(this.width / 2, this.height / 10, this.ctx, this),
+        )
 
     }
 
@@ -202,10 +269,14 @@ class Game {
         if (this.inMenu) {
             this.menu();
         } else {
-            for (const obj of this.drawableObjects) {
+            for (const obj of this.drawableObjects[0]) {
                 obj.draw();
             }
-            this.drawableObjects = this.drawableObjects.filter(item => !item.del);
+            this.drawableObjects[0] = this.drawableObjects[0].filter(item => !item.del);
+            for (const obj of this.drawableObjects[1]) {
+                obj.draw();
+            }
+            this.drawableObjects[1] = this.drawableObjects[1].filter(item => !item.del);
         }
     }
 
