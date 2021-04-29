@@ -1,19 +1,20 @@
 'use strict';
 
 class Bullet {
-    constructor(ctx, objGame) {
+    constructor(ctx, objGame, x, y, speed = 0, damageToPlayer = 0, damageToEnemy = 0) {
         this.del = false;
         this.ctx = ctx;
         this.objGame = objGame;
         this.img = new Image();
         this.img.src = 'images/laserShotRed.png';
-        this.width = canvas.height / 100 ;
+        this.width = canvas.height / 100;
         this.height = canvas.height / 100 * this.img.naturalHeight / this.img.naturalWidth;
-        this.speed = 5;
-        this.x = canvas.width + this.width;
-        this.y = canvas.height;
-        this.damage = 1;
-        console.log('I\'m bullet', this.x, this.y, this.width, this.height);
+        this.speed = speed;
+        this.x = x - this.width / 2;
+        this.y = y - this.height / 2;
+        this.damageToPlayer = damageToPlayer;
+        this.damageToEnemy = damageToEnemy;
+        //console.log('I\'m bullet', this.x, this.y, this.width, this.height);
     }
 
     draw() {
@@ -28,13 +29,8 @@ class Bullet {
         }
     }
 
-    moveTo(x, y) {
-        this.x = x - this.width / 2;
-        this.y = y - this.height / 2;
-    }
-
     checkCrush() {
-        if (this.y+this.height < 0) {// if reach top
+        if (this.y + this.height < 0 || this.y > canvas.height) {// if reach top
             return true;
         }
         //console.log('I\'m not crushed bullet');
@@ -57,7 +53,7 @@ class Player {
         this.img.src = 'images/playerSpaceship.png';
         this.width = window.innerHeight / 10;
         this.height = this.width;
-        this.speed = this.width / 60;
+        this.speed = this.width / 40;
         this.x = x - this.width / 2;
         this.y = y - this.height / 2;
         console.log(`Player created at ${this.x} ${this.y}`);
@@ -81,9 +77,7 @@ class Player {
     fire() {
         if (Date.now() - this.timeOfLastShot - this.maxFiringFrequency > 0) {
             this.timeOfLastShot = Date.now();
-            let bull = new Bullet(ctx, this.objGame);
-            bull.moveTo(this.x + this.width / 2, this.y - bull.height / 2);
-            this.objGame.drawableObjects.push(bull);
+            this.objGame.drawableObjects.push(new Bullet(ctx, this.objGame, this.x + this.width / 2, this.y, this.speed+5, 0, this.damage));
         }
     }
 
@@ -138,39 +132,92 @@ class Enemy {
         this.x = x;
         this.y = y;
     }
+
+    draw() {
+
+    }
+}
+
+class Button {
+    constructor(ctx, objGame, x, y, width, height, text) {
+        this.ctx = ctx;
+        this.objGame = objGame;
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.text = text;
+        this.clicked = false;
+    }
+
+    draw() {
+        this.ctx.fillStyle = '#FFFFFF';
+        this.ctx.fillRect(this.x, this.y, this.width, this.height);
+        this.ctx.fillStyle = '#000';
+        this.ctx.textAlign = 'center';
+        this.ctx.fillText(this.text, this.x + this.width / 2, this.y + this.height / 2);
+        this.checkClicked();
+    }
+
+    checkClicked() {
+        if (lMouseX > this.x && lMouseX < this.x + this.width && lMouseY > this.y && lMouseY < this.y + this.height) {
+            this.clicked = true;
+        }
+    }
 }
 
 class Game {
     constructor(ctx) {
-        this.alive = true;
         this.drawableObjects = [];
         this.ctx = ctx;
         this.width = window.innerWidth;
         this.height = window.innerHeight;
-
-        this.prepare();
+        this.inMenu = true;
+        this.prepareInGameBackground();
+        this.prepareButtons();
     }
 
     prepare() {
-        // Level 0 Background
-        this.prepareInGameBackground();
-        //
         // Level 1 Player, Enemies, Obstacles, Bullets
         this.player = new Player(this.width / 2, (this.height / 10) * 9, this.ctx, this);
         this.drawableObjects.push(this.player);
         //
+
+    }
+
+    prepareButtons() {
+        let n = 4;
+        this.buttons = [
+            new Button(ctx, this, (canvas.width - canvas.width / 15) / (n + 1), (canvas.height - canvas.height / 10) / 2, canvas.width / 10, canvas.height / 7, 'Клавиатура'),
+            new Button(ctx, this, (canvas.width - canvas.width / 15) / (n + 1) * 2, (canvas.height - canvas.height / 10) / 2, canvas.width / 10, canvas.height / 7, 'Мышь'),
+            new Button(ctx, this, (canvas.width - canvas.width / 15) / (n + 1) * 3, (canvas.height - canvas.height / 10) / 2, canvas.width / 10, canvas.height / 7, 'Мышь(авто)'),
+            new Button(ctx, this, (canvas.width - canvas.width / 15) / (n + 1) * 4, (canvas.height - canvas.height / 10) / 2, canvas.width / 10, canvas.height / 7, 'Тач(авто)'),
+        ];
     }
 
     draw() {
         // Draw level 0
         this.drawBackground();
         // Draw level 1
-        console.log('DrawObjs: ',this.drawableObjects);
-        for (const obj of this.drawableObjects) {
-            obj.draw();
+        if (this.inMenu) {
+            this.menu();
+        } else {
+            for (const obj of this.drawableObjects) {
+                obj.draw();
+            }
+            this.drawableObjects = this.drawableObjects.filter(item => !item.del);
         }
-        this.drawableObjects = this.drawableObjects.filter(item => !item.del);
-        return true;
+    }
+
+    menu() {
+        for (const button of this.buttons) {
+            button.draw();
+        }
+        if (this.buttons[0].clicked) {
+            this.inMenu = false;
+            console.log('Button clicked');
+            this.prepare();
+        }
     }
 
     drawBackground() {
@@ -203,9 +250,10 @@ class Game {
 }
 
 window.onload = function () {
-    document.addEventListener("mousemove", changeMousePos, true);
-    document.addEventListener('keydown', keyPressed, true);
-    document.addEventListener('keyup', keyReleased, true);
+    document.addEventListener("mousemove", changeMousePos);
+    document.addEventListener('keydown', keyPressed);
+    document.addEventListener('keyup', keyReleased);
+    canvas.addEventListener('click', changeLMousePos);
 }
 
 let canvas = document.getElementById('myCanvas');
@@ -222,15 +270,20 @@ const KEY_CODES = {
 let keysStatus = {};
 let mouseX = 0;
 let mouseY = 0;
+let lMouseX = 0;
+let lMouseY = 0;
 let game = new Game(ctx);
 let inGame = true;
 let drawInterval = setInterval(draw, 1000 / 60);
 
 function draw() {
-    // drawInterval
-    if (inGame) {
-        inGame = game.draw();
-    }
+    game.draw();
+}
+
+function changeLMousePos(e) {
+    lMouseX = e.clientX;
+    lMouseY = e.clientY;
+    console.log(`Clicked here ${lMouseX} ${lMouseY}`);
 }
 
 function changeMousePos(e) {
