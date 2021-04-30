@@ -90,6 +90,10 @@ class Player {
                 this.movemenetInterval = setInterval(this.controlledByMouseAuto, 1, this);
                 this.autoFire = true;
                 break;
+            case 3:
+                this.movemenetInterval = setInterval(this.controlledByTouchAuto, 1, this);
+                this.autoFire = true;
+                break;
             default:
                 this.movemenetInterval = setInterval(this.controlledByKeyboard, 1, this);
                 this.autoFire = false;
@@ -197,7 +201,12 @@ class Player {
     }
 
     controlledByTouchAuto(self) {
-        // TODO Сделать управление тачами
+        if (self.x >= 0 && self.x+self.width <= canvas.width){
+            self.x -= dTouchX;
+        }
+        if (self.y >= 0 && self.y+self.height <= canvas.height){
+            self.y -= dTouchY;
+        }
     }
 
     shootByMouse() {
@@ -683,6 +692,8 @@ class Game {
 }
 
 window.onload = function () {
+    document.addEventListener('touchstart', changeTouchStart);
+    document.addEventListener('touchmove', changeTouchMove);
     document.addEventListener("mousemove", changeMousePos);
     document.addEventListener('mousedown', mKeyPressed);
     document.addEventListener('mouseup', mKeyReleased);
@@ -708,12 +719,28 @@ let mouseX = 0;
 let mouseY = 0;
 let lMouseX = 0;
 let lMouseY = 0;
+let lTouchX = 0;
+let lTouchY = 0;
+let dTouchX = 0;
+let dTouchY = 0;
 let game = new Game(ctx);
 let inGame = true;
 let drawInterval = setInterval(draw, 1000 / 60);
 
 function draw() {
     game.draw();
+}
+
+function changeTouchMove(e) {
+    dTouchX = lTouchX - e.touches[0].clientX;
+    dTouchY = lTouchY - e.touches[0].clientY;
+    lTouchX = e.touches[0].clientX;
+    lTouchY = e.touches[0].clientY;
+}
+
+function changeTouchStart(e) {
+    lTouchX = e.touches[0].clientX;
+    lTouchY = e.touches[0].clientY;
 }
 
 function clearLMousePos() {
