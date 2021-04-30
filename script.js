@@ -572,7 +572,6 @@ class Game {
             this.drawableObjects[1].length = 0;
             this.message = 'Ты умер!';
             this.checkBestScore();
-            this.level = 1;
             this.inAfterGameMenu = true;
         }
         this.drawCurrentScore();
@@ -588,6 +587,8 @@ class Game {
                 this.beforeGameMenuButtons[i].clicked = false;
                 clearLMousePos();
                 this.inBeforeGameMenu = false;
+                this.enemyCount = 0;
+                this.level = 0;
                 console.log('Button clicked');
                 this.prepare();
                 break;
