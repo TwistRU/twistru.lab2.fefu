@@ -202,7 +202,11 @@ class Player {
 
     controlledByTouchAuto(self) {
         if (self.x >= 0 && self.x+self.width <= canvas.width){
-            self.x -= dTouchX;
+            if(self.x - dTouchX > 0){
+                self.x -= dTouchX;
+            } else  if( self.x - dTouchX < canvas.width){
+                self.x -= dTouchX;
+            }
         }
         if (self.y >= 0 && self.y+self.height <= canvas.height){
             self.y -= dTouchY;
