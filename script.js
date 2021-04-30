@@ -1,56 +1,54 @@
 'use strict';
 
 class Bullet {
-    constructor(ctx, objGame, x, y, color, speed = 0, damageToPlayer = 0, damageToEnemy = 0) {
+    constructor(ctx, objGame, x, y, color,  angle = Math.PI / 2, damageToPlayer = 0, damageToEnemy = 0) {
         this.del = false;
         this.ctx = ctx;
         this.objGame = objGame;
         this.color = color;
-        this.width = canvas.height / 100;
-        this.height = this.width * 3;
-        this.speed = speed;
-        this.x = x - this.width / 2;
-        this.y = y - this.height / 2;
+        this.radius = canvas.height / 100;
+        this.speed = canvas.height / 110;
+        this.angle = angle;
+        this.x = x - this.radius / 2;
+        this.y = y - this.radius / 2;
         this.damageToPlayer = damageToPlayer;
         this.damageToEnemy = damageToEnemy;
         //console.log('I\'m bullet', this.x, this.y, this.width, this.height);
     }
 
     draw() {
-        //console.log('I\'m drawing bullet');
         if (!this.checkCrush()) {
             this.drawBullet();
-            this.y -= this.speed;
+            this.move();
         } else {
-            //console.log('I\'m crushed bullet');
             this.del = true;
         }
     }
 
+    move() {
+        this.y -= this.speed * Math.sin(this.angle);
+        this.x -= this.speed * Math.cos(this.angle);
+    }
+
     drawBullet() {
+        this.ctx.beginPath();
         this.ctx.fillStyle = this.color;
-        this.ctx.fillRect(this.x, this.y, this.width, this.height);
+        this.ctx.arc(this.x + this.radius / 2, this.y, this.radius, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.closePath();
     }
 
     checkCrush() {
-        if (this.y + this.height < 0 || this.y > canvas.height) {// if reach top
+        if (this.y + this.radius * 2 < 0 || this.y > canvas.height || this.x < 0 || this.x > canvas.width) {// if reach top
             return true;
         }
         for (const obj of this.objGame.drawableObjects[1]) {
-            if (Math.pow(obj.x + obj.width / 2 - this.x, 2) + Math.pow(obj.y + obj.height / 2 - this.y, 2) <= Math.pow(obj.width / 2, 2)) {
-                console.log(`Shooted a ${obj.type}`);
+            if (Math.pow(obj.x + obj.width / 2 - this.x, 2) + Math.pow(obj.y + obj.height / 2 - this.y, 2) <= Math.pow(obj.radius, 2)) {
                 if (obj.type === 'player' && this.damageToPlayer !== 0) {
-                    if (!obj.immortal) {
-                        console.log(`Damage to ${obj.type}`);
-                        obj.countOfLives -= this.damageToPlayer;
-                        obj.immortal = true;
-                        obj.timeOfLastImmortal = Date.now();
-                        console.log('Player is immortal');
-                    }
+                    obj.takeDamage(this.damageToPlayer);
                     return true;
                 }
                 if (obj.type === 'enemy' && this.damageToEnemy !== 0) {
-                    console.log(`Damage to ${obj.type}`);
                     obj.countOfLives -= this.damageToEnemy;
                     return true;
                 }
@@ -63,13 +61,12 @@ class Bullet {
 
 
 class Player {
-    // TODO Сделать коллизию с объектами
     constructor(x, y, ctx, objGame, controlledBy) {
         this.type = 'player';
         this.del = false;
         this.objGame = objGame;
         this.ctx = ctx;
-        this.countOfLives = 3;
+        this.countOfLives = 10;
         this.damage = 1;
         this.maxFiringFrequency = 300; // Shot every Milliseconds
         this.immortal = false;
@@ -80,11 +77,12 @@ class Player {
         this.img.src = 'images/playerSpaceship.png';
         this.width = window.innerHeight / 10;
         this.height = this.width;
+        this.radius = this.width / 4;
         this.speed = this.width / 40;
         this.x = x - this.width / 2;
         this.y = y - this.height / 2;
         console.log(`Player created at ${this.x} ${this.y}`);
-        switch (controlledBy){
+        switch (controlledBy) {
             case 1:
                 this.movemenetInterval = setInterval(this.controlledByMouse, 1, this);
                 this.autoFire = false;
@@ -100,6 +98,7 @@ class Player {
     }
 
     draw() {
+        this.checkCrush();
         if (this.countOfLives <= 0) {
             this.death();
         }
@@ -120,9 +119,14 @@ class Player {
 
     drawPlayer() {
         this.ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
+        this.ctx.beginPath();
+        this.ctx.fillStyle = 'rgba(255,0,0,0.51)'
+        this.ctx.arc(this.x + this.width / 2, this.y + this.height / 2, this.radius, 0, Math.PI * 2);
+        this.ctx.fill();
+        this.ctx.closePath();
     }
 
-    drawLifes(){
+    drawLifes() {
         this.ctx.fillStyle = '#FFF';
         this.ctx.font = '25px Calibri';
         this.ctx.textAlign = 'start';
@@ -132,7 +136,13 @@ class Player {
     fire() {
         if (Date.now() - this.timeOfLastShot - this.maxFiringFrequency > 0) {
             this.timeOfLastShot = Date.now();
-            this.objGame.drawableObjects[0].push(new Bullet(ctx, this.objGame, this.x + this.width / 2, this.y - 10, "#a00404", this.speed + 5, 0, this.damage));
+            this.drawFireSpray(1);
+        }
+    }
+
+    drawFireSpray(n) {
+        for (let i = 1; i < n + 1; i++) {
+            this.objGame.drawableObjects[0].push(new Bullet(ctx, this.objGame, this.x + this.width / 2, this.y - 15, '#a00404', Math.PI / (n + 1) * i, 0, this.damage));
         }
     }
 
@@ -176,24 +186,48 @@ class Player {
         }
     }
 
-    controlledByMouse(self){
+    controlledByMouse(self) {
         self.shootByMouse();
         self.movementByMouse();
     }
 
-    controlledByMouseAuto(self){
+    controlledByMouseAuto(self) {
         self.movementByMouse();
     }
 
-    shootByMouse(){
-        if(keysStatus[KEY_CODES.LEFT_MOUSE]){
+    controlledByTouchAuto(self) {
+        // TODO Сделать управление тачами
+    }
+
+    shootByMouse() {
+        if (keysStatus[KEY_CODES.LEFT_MOUSE]) {
             this.fire();
         }
     }
 
-    movementByMouse(){
-        this.x = mouseX - this.width/2;
-        this.y = mouseY - this.height/2;
+    movementByMouse() {
+        this.x = mouseX - this.width / 2;
+        this.y = mouseY - this.height / 2;
+    }
+
+    takeDamage(n) {
+        if (!this.immortal) {
+            this.countOfLives -= n;
+            this.immortal = true;
+            this.timeOfLastImmortal = Date.now();
+        }
+    }
+
+    checkCrush() {
+        for (const obj of this.objGame.drawableObjects[1]) {
+            if (Math.sqrt(
+                Math.pow(this.x + this.width / 2 - obj.x - obj.width / 2, 2) +
+                Math.pow(this.y + this.height / 2 - obj.y - obj.height / 2, 2)) < (this.radius + obj.radius) &&
+                obj.type !== 'player'
+            ) {
+                this.takeDamage(1);
+            }
+        }
     }
 
     death() {
@@ -204,6 +238,7 @@ class Player {
 }
 
 class Obstacle {
+    // TODO Доделать препятствия
     constructor(x, y, ctx, objGame) {
         this.type = 'obstacle';
         this.ctx = ctx;
@@ -219,6 +254,7 @@ class Obstacle {
 
 class Enemy {
     constructor(x, y, ctx, objGame) {
+        objGame.enemyCount++;
         this.type = 'enemy';
         this.ctx = ctx;
         this.objGame = objGame;
@@ -227,6 +263,7 @@ class Enemy {
         this.speed = this.width / 50;
         this.x = x - this.width / 2;
         this.y = y - this.height / 2;
+        this.radius = this.width / 2;
         this.del = false;
         this.timeOfLastShot = Date.now();
         this.autoFire = true;
@@ -236,6 +273,7 @@ class Enemy {
     }
 
     draw() {
+        this.movement();
         if (this.countOfLives <= 0) {
             this.death();
         }
@@ -245,8 +283,15 @@ class Enemy {
         }
     }
 
+    movement(){
+        this.x += this.speed;
+        if (this.x < 0 || this.x > canvas.width) {
+            this.speed *= -1;
+        }
+    }
+
     drawEnemy() {
-        this.ctx.fillStyle = '#FFF';
+        this.ctx.fillStyle = 'rgb(36,0,255)';
         this.ctx.fillRect(this.x, this.y, this.width, this.height);
     }
 
@@ -258,11 +303,18 @@ class Enemy {
     }
 
     drawFire() {
-        this.objGame.drawableObjects[0].push(new Bullet(ctx, this.objGame, this.x + this.width / 2, this.y + this.height + 15, '#1fd030', -this.speed - 5, this.damage, 0));
+        this.drawFireSpray(1);
+    }
+
+    drawFireSpray(n) {
+        for (let i = 1; i < n + 1; i++) {
+            this.objGame.drawableObjects[0].push(new Bullet(ctx, this.objGame, this.x + this.width / 2, this.y + this.height + 15, '#1fd030', Math.PI / (n + 1) * i + Math.PI, this.damage, 0));
+        }
     }
 
     death() {
         console.log('Enemy is DEAD');
+        this.objGame.enemyCount--;
         this.del = true;
     }
 }
@@ -274,9 +326,20 @@ class Enemy1 extends Enemy {
 
     }
 
+    drawEnemy() {
+        this.ctx.fillStyle = 'rgb(199,0,255)';
+        this.ctx.fillRect(this.x, this.y, this.width, this.height);
+    }
+
     drawFire() {
-        this.objGame.drawableObjects[0].push(new Bullet(ctx, this.objGame, this.x + this.width / 2 - 30, this.y + this.height + 15, '#1fd030', -this.speed - 5, this.damage, 0));
-        this.objGame.drawableObjects[0].push(new Bullet(ctx, this.objGame, this.x + this.width / 2 + 30, this.y + this.height + 15, '#1fd030', -this.speed - 5, this.damage, 0));
+        this.drawFireSpray(5);
+    }
+}
+
+class Boss extends Enemy1{
+    constructor(x, y, ctx, objGame) {
+        super(x, y, ctx, objGame);
+        this.radius *= 2;
     }
 }
 
@@ -320,6 +383,7 @@ class Game {
         this.height = window.innerHeight;
         this.inBeforeGameMenu = true;
         this.inAfterGameMenu = false;
+        this.enemyCount = 0;
         this.controllerType = 0;
         this.prepareInGameBackground();
         this.prepareButtons();
@@ -358,9 +422,12 @@ class Game {
         // Draw level 0
         this.drawBackground();
         // Draw level 1
-        if (this.inAfterGameMenu){
+        if (!this.enemyCount && !this.inBeforeGameMenu){
+            this.inAfterGameMenu = true;
+        }
+        if (this.inAfterGameMenu) {
             this.afterGameMenu();
-        }else if (this.inBeforeGameMenu) {
+        } else if (this.inBeforeGameMenu) {
             this.beforeGameMenu();
         } else {
             for (const obj of this.drawableObjects[0]) {
@@ -398,7 +465,7 @@ class Game {
         }
     }
 
-    afterGameMenu(){
+    afterGameMenu() {
         for (const button of this.afterGameMenuButtons) {
             button.draw();
         }
@@ -418,7 +485,7 @@ class Game {
                 this.inAfterGameMenu = false;
                 break;
             case 1:
-                window.close();
+                close();
                 break;
         }
     }
