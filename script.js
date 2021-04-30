@@ -40,10 +40,11 @@ class Bullet {
             if (Math.pow(obj.x + obj.width / 2 - this.x, 2) + Math.pow(obj.y + obj.height / 2 - this.y, 2) <= Math.pow(obj.width / 2, 2)) {
                 console.log(`Shooted a ${obj.type}`);
                 if (obj.type === 'player' && this.damageToPlayer !== 0) {
-                    if (!obj.immortal){
+                    if (!obj.immortal) {
                         console.log(`Damage to ${obj.type}`);
                         obj.countOfLives -= this.damageToPlayer;
                         obj.immortal = true;
+                        obj.timeOfLastImmortal = Date.now();
                         console.log('Player is immortal');
                     }
                     return true;
@@ -62,7 +63,8 @@ class Bullet {
 
 
 class Player {
-    constructor(x, y, ctx, objGame) {
+    // TODO Сделать коллизию с объектами
+    constructor(x, y, ctx, objGame, controlledBy) {
         this.type = 'player';
         this.del = false;
         this.objGame = objGame;
@@ -82,19 +84,32 @@ class Player {
         this.x = x - this.width / 2;
         this.y = y - this.height / 2;
         console.log(`Player created at ${this.x} ${this.y}`);
-        this.movemenetInterval = setInterval(this.movementByKeyboard, 1, this);
+        switch (controlledBy){
+            case 1:
+                this.movemenetInterval = setInterval(this.controlledByMouse, 1, this);
+                this.autoFire = false;
+                break;
+            case 2:
+                this.movemenetInterval = setInterval(this.controlledByMouseAuto, 1, this);
+                this.autoFire = true;
+                break;
+            default:
+                this.movemenetInterval = setInterval(this.controlledByKeyboard, 1, this);
+                this.autoFire = false;
+        }
     }
 
     draw() {
         if (this.countOfLives <= 0) {
             this.death();
         }
+        this.drawLifes();
         this.drawPlayer();
-        if (this.immortal){
+        if (this.immortal) {
             this.drawImmortal();
-            if (Date.now() - 3000 - this.timeOfLastImmortal >= 0){
+            if (Date.now() - 3000 - this.timeOfLastImmortal >= 0) {
                 this.timeOfLastImmortal = Date.now();
-                //console.log('Player is not immortal anymore');
+                console.log('Player is not immortal anymore');
                 this.immortal = false;
             }
         }
@@ -107,6 +122,13 @@ class Player {
         this.ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
     }
 
+    drawLifes(){
+        this.ctx.fillStyle = '#FFF';
+        this.ctx.font = '25px Calibri';
+        this.ctx.textAlign = 'start';
+        this.ctx.fillText(`Lifes: ${this.countOfLives}`, 10, 30);
+    }
+
     fire() {
         if (Date.now() - this.timeOfLastShot - this.maxFiringFrequency > 0) {
             this.timeOfLastShot = Date.now();
@@ -117,12 +139,12 @@ class Player {
     drawImmortal() {
         this.ctx.fillStyle = 'rgba(32,20,186,0.4)'
         this.ctx.arc(
-            this.x+this.width/2,
-            this.y+this.height/2,
-            Math.sqrt(Math.pow(this.width/2,2) + Math.pow(this.height/2,2)),
+            this.x + this.width / 2,
+            this.y + this.height / 2,
+            Math.sqrt(Math.pow(this.width / 2, 2) + Math.pow(this.height / 2, 2)),
             0,
-            Math.PI*2
-            );
+            Math.PI * 2
+        );
         this.ctx.fill();
     }
 
@@ -136,7 +158,7 @@ class Player {
         this.y = y - this.height / 2;
     }
 
-    movementByKeyboard(self) {
+    controlledByKeyboard(self) {
         if (keysStatus[KEY_CODES.SPACEBAR]) {
             self.fire();
         }
@@ -152,6 +174,26 @@ class Player {
         if (keysStatus[KEY_CODES.RIGHT_KEY] && self.x < canvas.width - self.width) {
             self.addToCoord(self.speed, 0);
         }
+    }
+
+    controlledByMouse(self){
+        self.shootByMouse();
+        self.movementByMouse();
+    }
+
+    controlledByMouseAuto(self){
+        self.movementByMouse();
+    }
+
+    shootByMouse(){
+        if(keysStatus[KEY_CODES.LEFT_MOUSE]){
+            this.fire();
+        }
+    }
+
+    movementByMouse(){
+        this.x = mouseX - this.width/2;
+        this.y = mouseY - this.height/2;
     }
 
     death() {
@@ -180,7 +222,7 @@ class Enemy {
         this.type = 'enemy';
         this.ctx = ctx;
         this.objGame = objGame;
-        this.width = window.innerHeight / 10;
+        this.width = window.innerHeight / 15;
         this.height = this.width;
         this.speed = this.width / 50;
         this.x = x - this.width / 2;
@@ -211,13 +253,30 @@ class Enemy {
     fire() {
         if (Date.now() - this.timeOfLastShot - this.maxFiringFrequency >= 0) {
             this.timeOfLastShot = Date.now();
-            this.objGame.drawableObjects[0].push(new Bullet(ctx, this.objGame, this.x + this.width / 2, this.y + this.height + 15, '#1fd030', -this.speed - 5, this.damage, 0));
+            this.drawFire();
         }
+    }
+
+    drawFire() {
+        this.objGame.drawableObjects[0].push(new Bullet(ctx, this.objGame, this.x + this.width / 2, this.y + this.height + 15, '#1fd030', -this.speed - 5, this.damage, 0));
     }
 
     death() {
         console.log('Enemy is DEAD');
         this.del = true;
+    }
+}
+
+class Enemy1 extends Enemy {
+    constructor(x, y, ctx, objGame) {
+        super(x, y, ctx, objGame);
+        this.maxFiringFrequency *= 1.2;
+
+    }
+
+    drawFire() {
+        this.objGame.drawableObjects[0].push(new Bullet(ctx, this.objGame, this.x + this.width / 2 - 30, this.y + this.height + 15, '#1fd030', -this.speed - 5, this.damage, 0));
+        this.objGame.drawableObjects[0].push(new Bullet(ctx, this.objGame, this.x + this.width / 2 + 30, this.y + this.height + 15, '#1fd030', -this.speed - 5, this.damage, 0));
     }
 }
 
@@ -238,6 +297,7 @@ class Button {
         this.ctx.fillRect(this.x, this.y, this.width, this.height);
         this.ctx.fillStyle = '#000';
         this.ctx.textAlign = 'center';
+        this.ctx.font = '20px Calibri';
         this.ctx.fillText(this.text, this.x + this.width / 2, this.y + this.height / 2);
         this.checkClicked();
     }
@@ -258,29 +318,39 @@ class Game {
         this.ctx = ctx;
         this.width = window.innerWidth;
         this.height = window.innerHeight;
-        this.inMenu = true;
+        this.inBeforeGameMenu = true;
+        this.inAfterGameMenu = false;
+        this.controllerType = 0;
         this.prepareInGameBackground();
         this.prepareButtons();
     }
 
     prepare() {
         // Level 1 Player, Enemies, Obstacles, Bullets
-        this.player = new Player(this.width / 2, (this.height / 10) * 9, this.ctx, this);
+        this.player = new Player(this.width / 2, (this.height / 10) * 9, this.ctx, this, this.controllerType);
         this.drawableObjects[1].push(this.player);
         //
         this.drawableObjects[1].push(
             new Enemy(this.width / 2, this.height / 10, this.ctx, this),
+        )
+        this.drawableObjects[1].push(
+            new Enemy1(this.width / 10, this.height / 10, this.ctx, this),
         )
 
     }
 
     prepareButtons() {
         let n = 4;
-        this.buttons = [
+        this.beforeGameMenuButtons = [
             new Button(ctx, this, (canvas.width - canvas.width / 15) / (n + 1), (canvas.height - canvas.height / 10) / 2, canvas.width / 10, canvas.height / 7, 'Клавиатура'),
             new Button(ctx, this, (canvas.width - canvas.width / 15) / (n + 1) * 2, (canvas.height - canvas.height / 10) / 2, canvas.width / 10, canvas.height / 7, 'Мышь'),
             new Button(ctx, this, (canvas.width - canvas.width / 15) / (n + 1) * 3, (canvas.height - canvas.height / 10) / 2, canvas.width / 10, canvas.height / 7, 'Мышь(авто)'),
             new Button(ctx, this, (canvas.width - canvas.width / 15) / (n + 1) * 4, (canvas.height - canvas.height / 10) / 2, canvas.width / 10, canvas.height / 7, 'Тач(авто)'),
+        ];
+        n = 2
+        this.afterGameMenuButtons = [
+            new Button(ctx, this, (canvas.width - canvas.width / 15) / (n + 1), (canvas.height - canvas.height / 10) / 2, canvas.width / 10, canvas.height / 7, 'Новая игра'),
+            new Button(ctx, this, (canvas.width - canvas.width / 15) / (n + 1) * 2, (canvas.height - canvas.height / 10) / 2, canvas.width / 10, canvas.height / 7, 'Выход'),
         ];
     }
 
@@ -288,8 +358,10 @@ class Game {
         // Draw level 0
         this.drawBackground();
         // Draw level 1
-        if (this.inMenu) {
-            this.menu();
+        if (this.inAfterGameMenu){
+            this.afterGameMenu();
+        }else if (this.inBeforeGameMenu) {
+            this.beforeGameMenu();
         } else {
             for (const obj of this.drawableObjects[0]) {
                 obj.draw();
@@ -299,19 +371,58 @@ class Game {
                 obj.draw();
             }
             this.drawableObjects[1] = this.drawableObjects[1].filter(item => !item.del);
+            //
+            if (typeof this.player.del !== undefined && this.player.del) {
+                this.drawableObjects[0].length = 0;
+                this.drawableObjects[1].length = 0;
+                this.inAfterGameMenu = true;
+            }
+        }
+
+    }
+
+    beforeGameMenu() {
+        for (const button of this.beforeGameMenuButtons) {
+            button.draw();
+        }
+        for (let i = 0; i < this.beforeGameMenuButtons.length; i++) {
+            if (this.beforeGameMenuButtons[i].clicked) {
+                this.controllerType = i;
+                this.beforeGameMenuButtons[i].clicked = false;
+                clearLMousePos();
+                this.inBeforeGameMenu = false;
+                console.log('Button clicked');
+                this.prepare();
+                break;
+            }
         }
     }
 
-    menu() {
-        for (const button of this.buttons) {
+    afterGameMenu(){
+        for (const button of this.afterGameMenuButtons) {
             button.draw();
         }
-        if (this.buttons[0].clicked) {
-            this.inMenu = false;
-            console.log('Button clicked');
-            this.prepare();
+        let status = null;
+        for (let i = 0; i < this.afterGameMenuButtons.length; i++) {
+            if (this.afterGameMenuButtons[i].clicked) {
+                this.afterGameMenuButtons[i].clicked = false;
+                status = i;
+                clearLMousePos();
+                console.log('Button clicked');
+                break;
+            }
+        }
+        switch (status) {
+            case 0:
+                this.inBeforeGameMenu = true;
+                this.inAfterGameMenu = false;
+                break;
+            case 1:
+                window.close();
+                break;
         }
     }
+
 
     drawBackground() {
         this.ctx.beginPath();
@@ -344,6 +455,8 @@ class Game {
 
 window.onload = function () {
     document.addEventListener("mousemove", changeMousePos);
+    document.addEventListener('mousedown', mKeyPressed);
+    document.addEventListener('mouseup', mKeyReleased);
     document.addEventListener('keydown', keyPressed);
     document.addEventListener('keyup', keyReleased);
     canvas.addEventListener('click', changeLMousePos);
@@ -354,6 +467,7 @@ canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 const ctx = canvas.getContext('2d');
 const KEY_CODES = {
+    LEFT_MOUSE: 0,
     SPACEBAR: 32,
     LEFT_KEY: 37,
     UP_KEY: 38,
@@ -373,7 +487,13 @@ function draw() {
     game.draw();
 }
 
+function clearLMousePos() {
+    lMouseY = null;
+    lMouseX = null;
+}
+
 function changeLMousePos(e) {
+    // EventListener Click Mouse
     lMouseX = e.clientX;
     lMouseY = e.clientY;
     console.log(`Clicked here ${lMouseX} ${lMouseY}`);
@@ -385,10 +505,20 @@ function changeMousePos(e) {
     mouseX = e.clientX;
 }
 
+function mKeyPressed(e) {
+    // EventListener mouse key pressed
+    keysStatus[e.button] = true;
+}
+
+function mKeyReleased(e) {
+    // EventListener mouse key released
+    keysStatus[e.button] = false;
+}
+
 function keyPressed(e) {
     // EventListener keydown
     keysStatus[e.keyCode] = true;
-    //console.log(e.keyCode);
+    // console.log(e.keyCode);
 }
 
 function keyReleased(e) {
