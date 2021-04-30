@@ -201,15 +201,19 @@ class Player {
     }
 
     controlledByTouchAuto(self) {
-        if (self.x >= 0 && self.x+self.width <= canvas.width){
-            if(self.x - dTouchX > 0){
-                self.x -= dTouchX;
-            } else  if( self.x - dTouchX < canvas.width){
-                self.x -= dTouchX;
-            }
+        self.x -= dTouchX*0.4;
+        if (self.x <= 0) {
+            self.x = 1;
         }
-        if (self.y >= 0 && self.y+self.height <= canvas.height){
-            self.y -= dTouchY;
+        if (self.x + self.width >= canvas.width) {
+            self.x = canvas.width - self.width;
+        }
+        self.y -= dTouchY*0.4;
+        if (self.y <= 0) {
+            self.y = 1;
+        }
+        if (self.y + self.height >= canvas.height) {
+            self.y = canvas.height - self.height;
         }
     }
 
@@ -342,7 +346,7 @@ class Enemy {
         if (this.x < 0 || this.x + this.width > canvas.width) {
             this.speed *= -1;
         }
-        this.y += Math.abs(this.speed)*0.4;
+        this.y += Math.abs(this.speed) * 0.4;
     }
 
     drawEnemy() {
@@ -418,7 +422,7 @@ class Boss extends Enemy1 {
     }
 
     draw() {
-        if(Date.now() - this.frequencyOfSpawn - this.timeOfLastSpawn > 0){
+        if (Date.now() - this.frequencyOfSpawn - this.timeOfLastSpawn > 0) {
             this.timeOfLastSpawn = Date.now();
             this.spawn();
         }
@@ -429,10 +433,10 @@ class Boss extends Enemy1 {
         this.drawFireSpray(8);
     }
 
-    spawn(){
+    spawn() {
         for (let i = 1; i < 4; i++) {
             this.objGame.drawableObjects[1].push(
-                new Enemy(canvas.width/4*i, canvas.height/10+10*i, this.ctx, this.objGame)
+                new Enemy(canvas.width / 4 * i, canvas.height / 10 + 10 * i, this.ctx, this.objGame)
             );
         }
     }
@@ -532,14 +536,14 @@ class Game {
         this.drawBackground();
         // Draw level 1
         if (this.enemyCount <= 0 && !this.inBeforeGameMenu) {
-            if (this.level === this.levelsCount){
+            if (this.level === this.levelsCount) {
                 this.drawableObjects[0].length = 0;
                 this.drawableObjects[1].length = 0;
                 this.message = 'Ты победил!';
                 this.checkBestScore();
                 this.level = 0;
                 this.inAfterGameMenu = true;
-            }else {
+            } else {
                 this.level++;
                 this.levels(this.level);
             }
@@ -614,21 +618,21 @@ class Game {
         switch (level) {
             case 1:
                 n = 5;
-                for (let i = 1; i < n+1; i++) {
+                for (let i = 1; i < n + 1; i++) {
                     this.drawableObjects[1].push(
-                        new Enemy(canvas.width / (n + 1) * i, canvas.height/10, this.ctx, this)
+                        new Enemy(canvas.width / (n + 1) * i, canvas.height / 10, this.ctx, this)
                     );
                 }
                 n = 1;
-                for (let i = 1; i < n+1; i++) {
+                for (let i = 1; i < n + 1; i++) {
                     this.drawableObjects[1].push(
-                        new Enemy1(canvas.width / (n + 1) * i, canvas.height/10, this.ctx, this)
+                        new Enemy1(canvas.width / (n + 1) * i, canvas.height / 10, this.ctx, this)
                     );
                 }
                 break;
             case 2:
                 this.drawableObjects[1].push(
-                    new Boss(canvas.width / 2, canvas.height/10, this.ctx, this)
+                    new Boss(canvas.width / 2, canvas.height / 10, this.ctx, this)
                 );
                 break;
         }
@@ -698,6 +702,7 @@ class Game {
 window.onload = function () {
     document.addEventListener('touchstart', changeTouchStart);
     document.addEventListener('touchmove', changeTouchMove);
+    document.addEventListener('touchend', changeTouchEnd);
     document.addEventListener("mousemove", changeMousePos);
     document.addEventListener('mousedown', mKeyPressed);
     document.addEventListener('mouseup', mKeyReleased);
@@ -733,6 +738,11 @@ let drawInterval = setInterval(draw, 1000 / 60);
 
 function draw() {
     game.draw();
+}
+
+function changeTouchEnd(e){
+    dTouchX = 0;
+    dTouchY = 0;
 }
 
 function changeTouchMove(e) {
